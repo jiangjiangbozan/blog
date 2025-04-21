@@ -1,3 +1,4 @@
+@import 'element-plus/theme-chalk/dark/css-vars.css';
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -11,6 +12,19 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  --el-color-primary: #409EFF;
+  --header-bg: #409EFF;
+  --el-menu-text-color: rgba(255, 255, 255, 0.8);
+}
+
+html.dark {
+  --el-bg-color-page: #121212;
+
+  .el-card {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid #333;
+  }
 }
 
 a {
