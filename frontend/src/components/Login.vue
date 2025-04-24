@@ -9,8 +9,10 @@ import {
 } from '@element-plus/icons-vue'
 import { authAPI } from './../api/auth'
 import { ElMessage } from 'element-plus'
+import { useUserStore } from '../stores/user'
 
 
+const userStore = useUserStore()
 const isLoading = ref(false)
 const router = useRouter()
 const loginForm = ref()
@@ -27,20 +29,29 @@ const rules = {
 
 const handleLogin = async () => {
   try {
-    const { data } = await authAPI.login({
-      identifier: form.username,
+    // 直接获取响应对象，避免遗漏状态码和数据
+    const response = await authAPI.login({
+      username: form.username,
       password: form.password
-    })
+    });
 
-    localStorage.setItem('token', data.token)
-    ElMessage.success('登录成功')
-    router.push('/')
-  } catch (error) {
-    ElMessage.error(error.message || '登录失败')
+    // 检查响应中是否包含 token（防御性处理）
+    if (response.data?.token) {
+      localStorage.setItem('token', response.data.token)
+      userStore.login(response.data.token) // 更新Pinia状态
+      ElMessage.success('登录成功')
+      router.push('/')
+    } else {
+      // 后端返回 200 但无 token（如业务逻辑失败，需后端配合返回错误码）
+      ElMessage.error('登录失败：无效的响应数据');
+    }
+  } catch (error: any) {
+    console.log(error)
+    ElMessage.error(error.response?.data?.error || '登录失败：网络错误');
   }
-}
-</script>
+};
 
+</script>
 
 <template>
   <div class="form-container">

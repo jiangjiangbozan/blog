@@ -90,20 +90,14 @@ const handleRegister = async () => {
       password: form.password
     })
     ElMessage.success('注册成功')
-    await router.push('/login')
+    await router.push('/auth/login')
   } catch (error) {
-    console.log('提交注册数据:', {
-      username: form.username,
-      email: form.email,
-      password: form.password
-    });
-    ElMessage.error(error.message || '注册失败')
+    ElMessage.error('注册失败')
   } finally {
     isLoading.value = false
   }
 }
 </script>
-
 
 <template>
   <div class="form-container">
