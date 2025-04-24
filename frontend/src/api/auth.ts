@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axios, {type AxiosResponse} from 'axios'
 
 const service = axios.create({
     baseURL: import.meta.env.VITE_API_BASE_URL,
@@ -13,17 +13,17 @@ service.interceptors.request.use(config => {
 
 // 响应拦截器
 service.interceptors.response.use(
-    response => response.data,
-    error => {
-        return Promise.reject(error.response?.data || error.message)
+    (response) => response, // 直接返回完整的 response 对象
+    (error) => {
+        return Promise.reject(error);
     }
-)
+);
 
 export const authAPI = {
-    register: (data: RegisterParams) => service.post('/register', data),
-    login: (data: LoginParams) => service.post('/login', data),
-    checkUsername: (username: string) => service.get('/check/username', { params: { username } }),
-    checkEmail: (email: string) => service.get('/check/email', { params: { email } })
+    register: (data: RegisterParams): Promise<AxiosResponse<LoginResponse>> => service.post('/api/auth/register', data),
+    login: (data: LoginParams) => service.post('/api/auth/login', data),
+    checkUsername: (username: string) => service.get('/api/auth/check/username', { params: { username } }),
+    checkEmail: (email: string) => service.get('/api/auth/check/email', { params: { email } })
 }
 
 interface RegisterParams {
@@ -33,6 +33,10 @@ interface RegisterParams {
 }
 
 interface LoginParams {
-    identifier: string
+    username: string
     password: string
+}
+
+interface LoginResponse {
+    token: string;
 }

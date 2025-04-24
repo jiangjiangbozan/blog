@@ -3,6 +3,11 @@ import { ref } from 'vue';
 import { Search, User, House, FolderOpened, PriceTag, Collection, QuestionFilled, Moon, Sunny } from '@element-plus/icons-vue';
 import { useRouter } from 'vue-router';
 import {useDark, useToggle} from "@vueuse/core";
+import { useUserStore } from '../stores/user'
+
+
+const userStore = useUserStore()
+userStore.init() // 初始化状态
 
 // 创建暗黑模式状态（响应式 Ref）
 const isDark = useDark({
@@ -18,8 +23,6 @@ const toggleDark = useToggle(isDark)
 const router = useRouter();
 const activeMenu = ref('home');
 const searchKey = ref('');
-const isLoggedIn = ref(false);
-const userInfo = ref({ username: '用户' });
 const newMessages = ref(0);
 const handleMenuSelect = (index: string) => {
   activeMenu.value = index;
@@ -32,11 +35,11 @@ const handleSearch = () => {
 };
 
 const goLogin = () => {
-  router.push('/login');
+  router.push('/auth/login');
 };
 
 const goRegister = () => {
-  router.push('/register');
+  router.push('/auth/register');
 };
 
 const goMyFavorites = () => {
@@ -53,8 +56,8 @@ const goMessageCenter = () => {
 };
 
 const goLogout = () => {
-  isLoggedIn.value = false;
-  router.push('/');
+  userStore.logout()
+  router.push('/')
 };
 </script>
 
@@ -98,7 +101,7 @@ const goLogout = () => {
             专题系列
           </template>
         </el-menu-item>
-        <el-menu-item index="qa" v-if="isLoggedIn">
+        <el-menu-item index="qa" v-if="userStore.isLoggedIn">
           <template #title>
             <el-icon><QuestionFilled /></el-icon>
             技术问答
@@ -125,7 +128,7 @@ const goLogout = () => {
           </el-icon>
           <span style="vertical-align: middle"> 搜索 </span>
         </el-button>
-        <el-dropdown v-if="!isLoggedIn" trigger="click">
+        <el-dropdown v-if="!userStore.isLoggedIn" trigger="click">
           <el-button type="primary" link>
             <el-icon><User /></el-icon>
             登录/注册
@@ -140,7 +143,7 @@ const goLogout = () => {
         <el-dropdown v-else trigger="click">
           <el-button type="primary" link>
             <el-icon><User /></el-icon>
-            {{ userInfo.username }}
+            {{ userStore.username }}
           </el-button>
           <template #dropdown>
             <el-dropdown-menu>
