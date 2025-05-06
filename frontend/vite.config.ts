@@ -9,7 +9,6 @@ export default defineConfig({
       '/api': {  // 代理所有以/api开头的请求
         target: 'http://localhost:8080',  // 后端地址
         changeOrigin: true,  // 允许跨域
-        rewrite: (path) => path.replace(/^\/api/, '') // 正确移除/api前缀
       }
     }
   }

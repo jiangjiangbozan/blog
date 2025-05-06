@@ -24,6 +24,13 @@ export const useUserStore = defineStore('user', () => {
         localStorage.removeItem('token')
     }
 
+    function setToken(token: string) {
+        const decoded = jwtDecode<JwtPayload>(token)
+        isLoggedIn.value = true
+        username.value = decoded.username
+        localStorage.setItem('token', token)
+    }
+
     // 初始化时检查token
     function init() {
         const token = localStorage.getItem('token')
@@ -40,5 +47,5 @@ export const useUserStore = defineStore('user', () => {
         }
     }
 
-    return { isLoggedIn, username, login, logout, init }
+    return { isLoggedIn, username, login, logout, setToken, init }
 })

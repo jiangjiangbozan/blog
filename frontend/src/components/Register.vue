@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {reactive, ref, watch} from 'vue'
+import {reactive, ref} from 'vue'
 import { useRouter } from 'vue-router'
 import {
   User,
@@ -17,7 +17,8 @@ import { ElMessage } from 'element-plus'
 
 const isLoading = ref(false)
 const router = useRouter()
-const loginForm = ref<FormInstance>()
+const registerForm = ref<FormInstance>()
+const validEmail = ref(false) // 邮箱有效性状态
 
 const form = reactive<{
   username: string
@@ -31,70 +32,96 @@ const form = reactive<{
   agreement: false,
 })
 
+// 用户名实时校验
+const checkUsername = async (rule: any, value: string, callback: (error?: Error) => void) => {
+  if (!value.trim()) {
+    callback(new Error('请输入用户名')); // 优先触发必填校验
+    return;
+  }
+  try {
+    const response = await authAPI.checkUsername(value);
+    response.data.exists
+        ? callback(new Error('用户名已被注册'))
+        : callback();
+  } catch {
+    callback(new Error('校验服务异常，请手动检查'));
+  }
+}
+
+// 邮箱实时校验（修正参数）
+const checkEmail = async (rule: any, value: string, callback: (error?: Error) => void) => {
+  if (!value) {
+    callback(new Error('请输入邮箱'));
+    return;
+  }
+  try {
+    const response = await authAPI.checkEmail(value);
+    if (response.data.exists) {
+      callback(new Error('邮箱已被注册'));
+    } else {
+      callback();
+    }
+  } catch (error) {
+    callback(new Error('邮箱校验失败，请稍后重试'));
+  }
+}
+
 const rules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  username: [
+    {
+      required: true,
+      message: '请输入用户名',
+      trigger: ['blur', 'change'] // 同时监听输入和失焦
+    },
+    {
+      validator: checkUsername,
+      trigger: ['blur', 'change']
+    }
+  ],
+  password: [
+    {
+      required: true,
+      message: '请输入密码',
+      trigger: ['blur', 'change']
+    },
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 8, message: '密码至少8位', trigger: 'blur' },
+    { pattern: /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*])/,
+      message: '需包含字母、数字和特殊符号',
+      trigger: 'blur'
+    }
+  ],
   email: [
     { required: true, message: '请输入邮箱', trigger: 'blur' },
-    { type: 'email', message: '邮箱格式不正确', trigger: 'blur' },
+    {
+      type: 'email',
+      message: '邮箱格式不正确',
+      trigger: ['blur', 'change'],
+      pattern: /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}$/
+    },
+    { validator: checkEmail, trigger: ['blur', 'change'] }
   ],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
   agreement: [{ required: true, message: '请同意用户协议', trigger: 'change' }],
-}
-const validEmail = ref(false) // 邮箱有效性状态
-
-// 监听邮箱变化并验证格式
-watch(
-    () => form.email,
-    (email) => {
-      const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}$/
-      validEmail.value = emailRegex.test(email)
-    }
-)
-// 密码强度规则
-const passwordRules = [
-  { required: true, message: '请输入密码', trigger: 'blur' },
-  { min: 8, message: '密码至少8位', trigger: 'blur' },
-  { pattern: /^(?=.*[A-Za-z])(?=.*\d)(?=.*[!@#$%^&*])/,
-    message: '需包含字母、数字和特殊符号',
-    trigger: 'blur'
-  }
-]
-
-// 用户名实时校验
-const checkUsername = async () => {
-  try {
-    await authAPI.checkUsername(form.username)
-    return Promise.resolve()
-  } catch (error) {
-    return Promise.reject('用户名已被注册')
-  }
-}
-
-// 邮箱实时校验
-const checkEmail = async () => {
-  try {
-    await authAPI.checkEmail(form.email)
-    return Promise.resolve()
-  } catch (error) {
-    return Promise.reject('邮箱已被注册')
-  }
 }
 
 // 提交注册
 const handleRegister = async () => {
   try {
-    isLoading.value = true
-    await authAPI.register({
-      username: form.username,
-      email: form.email,
-      password: form.password
-    })
-    ElMessage.success('注册成功')
-    await router.push('/auth/login')
-  } catch (error) {
-    ElMessage.error('注册失败')
+    await registerForm.value?.validate();
+    isLoading.value = true;
+    await authAPI.register(form);
+    ElMessage.success('注册成功');
+    await router.push('/auth/login');
+  } catch (error: any) {
+    if (error instanceof Error) {
+      // 校验失败不显示错误提示（Element会自动处理）
+      return;
+    }
+    // 显示后端返回的具体错误
+    const errorMsg = error.response?.data?.error || '注册失败：未知错误';
+    ElMessage.error(errorMsg);
   } finally {
-    isLoading.value = false
+    isLoading.value = false;
   }
 }
 </script>
@@ -105,13 +132,9 @@ const handleRegister = async () => {
       <h1 class="form-title">注册新账户</h1>
       <el-form
           :model="form"
-          :rules="{
-          ...rules,
-          password: passwordRules,
-          username: [...rules.username, { validator: checkUsername, trigger: 'blur' }],
-          email: [...rules.email, { validator: checkEmail, trigger: 'blur' }]
-        }"
-              @submit.prevent="handleRegister"
+          :rules="rules"
+          ref="registerForm"
+          @submit.prevent="handleRegister"
           >
         <!-- 用户名 -->
         <el-form-item prop="username">
@@ -174,6 +197,7 @@ const handleRegister = async () => {
             size="large"
             native-type="submit"
             :loading="isLoading"
+            :disabled="!form.agreement"
             class="w-full form-btn"
         >
           立即注册

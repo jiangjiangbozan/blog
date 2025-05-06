@@ -8,14 +8,19 @@ import {
   Lock
 } from '@element-plus/icons-vue'
 import { authAPI } from './../api/auth'
-import { ElMessage } from 'element-plus'
+import {ElMessage, type FormInstance} from 'element-plus'
 import { useUserStore } from '../stores/user'
+import ForgotPasswordDialog from "./ForgotPasswordDialog.vue";
 
 
 const userStore = useUserStore()
 const isLoading = ref(false)
 const router = useRouter()
-const loginForm = ref()
+const loginForm = ref<FormInstance>()
+const showDialog = ref(false);
+const handleDialogSuccess = () => {
+  showDialog.value = false;
+};
 
 const form = reactive({
   username: '',
@@ -23,33 +28,69 @@ const form = reactive({
 })
 
 const rules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+  username: [
+    {
+      required: true,
+      message: '请输入用户名/邮箱',
+      trigger: ['blur', 'change']
+    },
+    {
+      pattern: /^([a-zA-Z0-9_\-.]+)@([a-zA-Z0-9_\-.]+)\.([a-zA-Z]{2,5})$|^[a-zA-Z0-9_]{4,16}$/,
+      message: '格式应为邮箱或4-16位字母数字组合',
+      trigger: ['blur', 'change']
+    }
+  ],
+  password: [
+    {
+      required: true,
+      message: '请输入密码',
+      trigger: ['blur', 'change']
+    },
+    {
+      min: 8,
+      message: '密码至少8位',
+      trigger: ['blur', 'change']
+    }
+  ]
 }
 
 const handleLogin = async () => {
   try {
-    // 直接获取响应对象，避免遗漏状态码和数据
+    // 1. 强制表单校验
+    await loginForm?.value.validate()
+
+    // 2. 显示加载状态
+    isLoading.value = true
+
+    // 3. 发起登录请求
     const response = await authAPI.login({
       username: form.username,
       password: form.password
-    });
+    })
 
-    // 检查响应中是否包含 token（防御性处理）
+    // 4. 处理成功响应
     if (response.data?.token) {
       localStorage.setItem('token', response.data.token)
-      userStore.login(response.data.token) // 更新Pinia状态
+      userStore.setToken(response.data.token)
       ElMessage.success('登录成功')
-      router.push('/')
-    } else {
-      // 后端返回 200 但无 token（如业务逻辑失败，需后端配合返回错误码）
-      ElMessage.error('登录失败：无效的响应数据');
+      await router.replace('/')
     }
   } catch (error: any) {
-    console.log(error)
-    ElMessage.error(error.response?.data?.error || '登录失败：网络错误');
+    // 5. 细化错误处理
+    if (error.response?.status === 401) {
+      ElMessage.error({
+        message: '认证失败',
+        duration: 3000
+      })
+    } else if (error.name === 'ValidationError') {
+      // 由Element自动处理的表单错误
+    } else {
+      ElMessage.error(error.message || '网络连接异常')
+    }
+  } finally {
+    isLoading.value = false
   }
-};
+}
 
 </script>
 
@@ -78,12 +119,17 @@ const handleLogin = async () => {
           />
         </el-form-item>
 
+        <el-form-item class="text-right">
+          <el-link type="primary" @click="showDialog = true">忘记密码？</el-link>
+        </el-form-item>
+
         <el-button
             type="primary"
             size="large"
             class="form-btn w-full"
             :loading="isLoading"
             @click="handleLogin"
+            :disabled="!loginForm?.validate"
         >
           立即登录
         </el-button>
@@ -97,6 +143,10 @@ const handleLogin = async () => {
         </div>
       </el-form>
     </el-card>
+    <ForgotPasswordDialog
+        v-model="showDialog"
+        @success="handleDialogSuccess"
+    />
   </div>
 </template>
 
@@ -112,5 +162,11 @@ const handleLogin = async () => {
       box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.15);
     }
   }
+}
+.el-dialog__header {
+  border-bottom: 1px solid #eee;
+}
+.el-dialog__body {
+  padding: 20px;
 }
 </style>

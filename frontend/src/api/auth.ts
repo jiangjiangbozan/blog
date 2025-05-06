@@ -23,7 +23,8 @@ export const authAPI = {
     register: (data: RegisterParams): Promise<AxiosResponse<LoginResponse>> => service.post('/api/auth/register', data),
     login: (data: LoginParams) => service.post('/api/auth/login', data),
     checkUsername: (username: string) => service.get('/api/auth/check/username', { params: { username } }),
-    checkEmail: (email: string) => service.get('/api/auth/check/email', { params: { email } })
+    checkEmail: (email: string) => service.get('/api/auth/check/email', { params: { email } }),
+    forgotPassword: (email: string) => service.post('/api/auth/forgot-password', { email: email })
 }
 
 interface RegisterParams {
